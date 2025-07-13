@@ -79,7 +79,7 @@ fi
 # Commit and push
 if git commit -m "$commit_msg"; then
     if [ "$remote_url" != "No remote set" ]; then
-        if git push origin "$target_branch"; then
+        if git push -u origin "$target_branch"; then
             yad --info --text="✅ Successfully pushed to '$target_branch'!" --width=350
         else
             yad --error --text="❌ Push failed! Check terminal for details." --width=350
