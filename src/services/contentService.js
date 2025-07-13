@@ -108,7 +108,7 @@ export const FOOTER_CONTENT = {
 export const VOLUNTEERS_CONTENT = {
   volunteer1: {
     name: {
-      en: "John Doe",
+      en: "Aashutosh Dahal",
       hi: "जॉन डो",
       ne: "जोन डो",
     },
@@ -122,7 +122,7 @@ export const VOLUNTEERS_CONTENT = {
   },
   volunteer2: {
     name: {
-      en: "Jane Smith",
+      en: "Sunita Koirala",
       hi: "जेन स्मिथ",
       ne: "जेन स्मिथ",
     },
