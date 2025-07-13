@@ -23,7 +23,29 @@ fi
 # Get current info
 remote_url=$(git remote get-url origin 2>/dev/null || echo "No remote set")
 current_branch=$(git branch --show-current)
-all_branches=$(git branch --format="%(refname:short)" | tr '\n' '!')
+
+# Get all local and remote branches
+local_branches=$(git branch --format="%(refname:short)" | sed 's/^/LOCAL: /')
+remote_branches=$(git branch -r --format="%(refname:short)" | grep -v HEAD | sed 's/origin\///' | sed 's/^/REMOTE: /')
+
+# Combine and format branches for dropdown
+all_branches=""
+if [ -n "$local_branches" ]; then
+    all_branches="$local_branches"
+fi
+if [ -n "$remote_branches" ]; then
+    if [ -n "$all_branches" ]; then
+        all_branches="$all_branches
+$remote_branches"
+    else
+        all_branches="$remote_branches"
+    fi
+fi
+
+# Convert to dropdown format and set current branch as default
+branch_dropdown=$(echo "$all_branches" | tr '\n' '!')
+# Make current branch the default (add LOCAL: prefix if it's local)
+default_branch="LOCAL: $current_branch"
 
 # Single dialog with all options
 result=$(yad --form \
@@ -32,8 +54,7 @@ result=$(yad --form \
     --field="Remote URL:":RO "$remote_url" \
     --field="Add all files:":CHK "TRUE" \
     --field="Commit message:":TEXT "" \
-    --field="Branch:":CB "$current_branch!$all_branches" \
-    --field="Custom branch name:":TEXT "" \
+    --field="Select branch to push to:":CB "$default_branch!$branch_dropdown" \
     --button="Push:0" \
     --button="Cancel:1" \
     --width=500 --height=300 \
@@ -49,8 +70,7 @@ IFS="|" read -ra values <<< "$result"
 remote="${values[0]}"
 add_all="${values[1]}"
 commit_msg="${values[2]}"
-selected_branch="${values[3]}"
-custom_branch="${values[4]}"
+selected_branch_with_prefix="${values[3]}"
 
 # Validate commit message
 if [ -z "$commit_msg" ]; then
@@ -58,12 +78,8 @@ if [ -z "$commit_msg" ]; then
     exit 1
 fi
 
-# Determine target branch
-if [ -n "$custom_branch" ]; then
-    target_branch="$custom_branch"
-else
-    target_branch="$selected_branch"
-fi
+# Extract actual branch name (remove LOCAL: or REMOTE: prefix)
+target_branch=$(echo "$selected_branch_with_prefix" | sed 's/^LOCAL: \|^REMOTE: //')
 
 # Stage files if requested
 if [ "$add_all" = "TRUE" ]; then
@@ -79,7 +95,7 @@ fi
 # Commit and push
 if git commit -m "$commit_msg"; then
     if [ "$remote_url" != "No remote set" ]; then
-        if git push -u origin "$target_branch"; then
+        if git push origin "$target_branch"; then
             yad --info --text="✅ Successfully pushed to '$target_branch'!" --width=350
         else
             yad --error --text="❌ Push failed! Check terminal for details." --width=350
