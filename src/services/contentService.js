@@ -10,6 +10,7 @@ export const TITLE_TEXT = {
   },
 };
 
+//new comment added
 export const NAVBAR_TEXT = {
   en: {
     navElement1: "Home",

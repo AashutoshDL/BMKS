@@ -1,58 +1,67 @@
 #!/bin/bash
 
-# Check if inside a Git repo
+# Ensure in Git repo
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
-  zenity --error --text="Not inside a Git repository!"
+  yad --error --text="Not inside a Git repository!"
   exit 1
 fi
 
-# Get remote URL
 remote_url=$(git remote get-url origin 2>/dev/null)
 
 if [ -z "$remote_url" ]; then
-  zenity --warning --text="No remote 'origin' set for this repo."
-else
-  zenity --info --title="Git Remote Info" --text="Connected Remote:\n$remote_url"
+  remote_url="No remote 'origin' set!"
 fi
 
-# Ask for commit message
-commit_message=$(zenity --entry \
-  --title="Enter Commit Message" \
-  --text="Please enter your Git commit message:")
+# Show main dialog
+result=$(yad --form \
+  --title="Git GUI Commit + Push" \
+  --width=600 --height=400 \
+  --field="Remote URL:RO" "$remote_url" \
+  --field="Add all files:CHK" FALSE \
+  --field="Commit message:TXT" "" \
+  --field="master:CHK" FALSE \
+  --field="main:CHK" TRUE \
+  --field="Other branch name" "" \
+  --button="Push:0" --button="Cancel:1")
 
-if [ -z "$commit_message" ]; then
-  zenity --error --text="Commit message cannot be empty!"
+ret=$?
+
+if [ "$ret" -ne 0 ]; then
+  exit 0
+fi
+
+# Parse values
+IFS="|" read -r _ add_all commit_msg master_chk main_chk other_branch <<< "$result"
+
+# Determine branch
+if [ "$other_branch" != "" ]; then
+  branch="$other_branch"
+elif [ "$master_chk" == "TRUE" ]; then
+  branch="master"
+elif [ "$main_chk" == "TRUE" ]; then
+  branch="main"
+else
+  yad --error --text="No branch selected!"
   exit 1
 fi
 
-# Branch selection dialog with options and "Other"
-branch=$(zenity --list --radiolist \
-  --title="Select Branch to Commit & Push" \
-  --text="Choose a branch or select 'Other' to specify:" \
-  --column="Select" --column="Branch" \
-  TRUE "main" \
-  FALSE "master" \
-  FALSE "Other")
-
-if [ "$branch" == "Other" ]; then
-  branch=$(zenity --entry --title="Custom Branch" --text="Enter branch name:")
-  if [ -z "$branch" ]; then
-    zenity --error --text="Branch name cannot be empty!"
-    exit 1
-  fi
+# Ensure commit message
+if [ -z "$commit_msg" ]; then
+  yad --error --text="Commit message cannot be empty!"
+  exit 1
 fi
 
-# Stage all changes
-git add .
+# Add files
+if [ "$add_all" == "TRUE" ]; then
+  git add .
+else
+  yad --info --text="Skipping git add (you unchecked 'Add all files')"
+fi
 
 # Commit
-git commit -m "$commit_message"
+git commit -m "$commit_msg"
 
-# Confirm push
-if zenity --question --text="Push changes to origin/$branch?"; then
-  git push origin "$branch"
-  zenity --info --text="Changes pushed to $branch!"
-else
-  zenity --info --text="Push canceled."
-fi
+# Push
+git push origin "$branch"
 
+yad --info --text="Changes pushed to branch: $branch"
